@@ -161,13 +161,13 @@
 #     if temperature > 35:
 #         st.error("High temperature may affect sensitive crops.")
 
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
 import requests
 import plotly.express as px
+import os
 
 from datetime import datetime, timedelta
 
@@ -182,10 +182,14 @@ st.set_page_config(
 )
 
 # =========================================================
-# LOAD MODEL
+# LOAD MODEL (DEPLOYMENT SAFE)
 # =========================================================
 
-model = pickle.load(open("model.pkl", "rb"))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+model_path = os.path.join(BASE_DIR, "model.pkl")
+
+model = pickle.load(open(model_path, "rb"))
 
 # =========================================================
 # CUSTOM CSS
@@ -286,6 +290,90 @@ crop_info = {
         "hindi": "अनार",
         "fertilizer": "Organic Manure",
         "profit": "₹1,50,000+ per acre"
+    },
+
+    "banana": {
+        "hindi": "केला",
+        "fertilizer": "Potassium Rich Fertilizer",
+        "profit": "₹1,00,000 - ₹3,00,000 per acre"
+    },
+
+    "mango": {
+        "hindi": "आम",
+        "fertilizer": "Organic Compost",
+        "profit": "₹2,00,000+ per acre"
+    },
+
+    "grapes": {
+        "hindi": "अंगूर",
+        "fertilizer": "NPK + Micronutrients",
+        "profit": "₹2,50,000+ per acre"
+    },
+
+    "watermelon": {
+        "hindi": "तरबूज",
+        "fertilizer": "Potash Fertilizer",
+        "profit": "₹80,000 - ₹1,50,000 per acre"
+    },
+
+    "muskmelon": {
+        "hindi": "खरबूजा",
+        "fertilizer": "Organic Compost + NPK",
+        "profit": "₹70,000 - ₹1,20,000 per acre"
+    },
+
+    "apple": {
+        "hindi": "सेब",
+        "fertilizer": "Organic Manure",
+        "profit": "₹2,00,000+ per acre"
+    },
+
+    "orange": {
+        "hindi": "संतरा",
+        "fertilizer": "Nitrogen + Potash",
+        "profit": "₹1,50,000+ per acre"
+    },
+
+    "papaya": {
+        "hindi": "पपीता",
+        "fertilizer": "Compost + Urea",
+        "profit": "₹1,20,000+ per acre"
+    },
+
+    "coconut": {
+        "hindi": "नारियल",
+        "fertilizer": "Organic Fertilizer",
+        "profit": "₹1,00,000+ per acre"
+    },
+
+    "jute": {
+        "hindi": "जूट",
+        "fertilizer": "Nitrogen Fertilizer",
+        "profit": "₹50,000 - ₹90,000 per acre"
+    },
+
+    "chickpea": {
+        "hindi": "चना",
+        "fertilizer": "DAP + Bio Fertilizer",
+        "profit": "₹45,000 - ₹70,000 per acre"
+    },
+
+    "kidneybeans": {
+        "hindi": "राजमा",
+        "fertilizer": "Compost + Potash",
+        "profit": "₹60,000 - ₹1,00,000 per acre"
+    },
+
+    "pigeonpeas": {
+        "hindi": "अरहर",
+        "fertilizer": "Phosphorus Fertilizer",
+        "profit": "₹50,000 - ₹80,000 per acre"
+    },
+
+    "blackgram": {
+        "hindi": "उड़द",
+        "fertilizer": "Nitrogen Fertilizer",
+        "profit": "₹45,000 - ₹70,000 per acre"
     }
 }
 
@@ -293,7 +381,7 @@ crop_info = {
 # WEATHER API
 # =========================================================
 
-API_KEY = "8d8fb13863134dc18fd213011262205"
+API_KEY = st.secrets["8d8fb13863134dc18fd213011262205"]
 
 # =========================================================
 # WEATHER FUNCTION
@@ -325,7 +413,6 @@ def get_weather_data(location):
 
             data = response.json()
 
-            # Invalid location handling
             if "forecast" not in data:
                 continue
 
@@ -349,14 +436,11 @@ def get_weather_data(location):
         except:
             continue
 
-    # Safety check
     if len(temperatures) == 0:
         return 0, 0, 0, pd.DataFrame()
 
     avg_temp = sum(temperatures) / len(temperatures)
     avg_humidity = sum(humidities) / len(humidities)
-
-    # Average rainfall
     avg_rainfall = sum(rainfalls) / len(rainfalls)
 
     weather_df = pd.DataFrame(weather_history)
@@ -487,10 +571,6 @@ if st.button("🌱 Recommend Crop"):
     st.success(
         f"✅ Best Crop Recommendation: {prediction[0].upper()}"
     )
-
-    # =====================================================
-    # TOP 3 RECOMMENDATIONS
-    # =====================================================
 
     st.subheader("🏆 Top 3 Crop Recommendations")
 
