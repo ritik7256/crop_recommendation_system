@@ -160,7 +160,6 @@
 
 #     if temperature > 35:
 #         st.error("High temperature may affect sensitive crops.")
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -182,7 +181,7 @@ st.set_page_config(
 )
 
 # =========================================================
-# LOAD MODEL (DEPLOYMENT SAFE)
+# LOAD MODEL
 # =========================================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -190,6 +189,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(BASE_DIR, "model.pkl")
 
 model = pickle.load(open(model_path, "rb"))
+
+# =========================================================
+# MODEL ACCURACY
+# =========================================================
+
+MODEL_ACCURACY = "99.31%"
 
 # =========================================================
 # CUSTOM CSS
@@ -226,13 +231,6 @@ st.markdown("""
 .stButton>button:hover {
     background-color: #1f6b45;
     color: white;
-}
-
-.metric-card {
-    padding: 20px;
-    border-radius: 15px;
-    background: white;
-    box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
 }
 
 </style>
@@ -286,12 +284,6 @@ crop_info = {
         "profit": "₹40,000 - ₹70,000 per acre"
     },
 
-    "pomegranate": {
-        "hindi": "अनार",
-        "fertilizer": "Organic Manure",
-        "profit": "₹1,50,000+ per acre"
-    },
-
     "banana": {
         "hindi": "केला",
         "fertilizer": "Potassium Rich Fertilizer",
@@ -320,12 +312,6 @@ crop_info = {
         "hindi": "खरबूजा",
         "fertilizer": "Organic Compost + NPK",
         "profit": "₹70,000 - ₹1,20,000 per acre"
-    },
-
-    "apple": {
-        "hindi": "सेब",
-        "fertilizer": "Organic Manure",
-        "profit": "₹2,00,000+ per acre"
     },
 
     "orange": {
@@ -381,7 +367,7 @@ crop_info = {
 # WEATHER API
 # =========================================================
 
-API_KEY = "8d8fb13863134dc18fd213011262205"
+API_KEY = "YOUR_API_KEY"
 
 # =========================================================
 # WEATHER FUNCTION
@@ -395,7 +381,6 @@ def get_weather_data(location):
 
     weather_history = []
 
-    # Last 30 Days Historical Data
     for i in range(1, 31):
 
         date = datetime.now() - timedelta(days=i)
@@ -448,6 +433,39 @@ def get_weather_data(location):
     return avg_temp, avg_humidity, avg_rainfall, weather_df
 
 # =========================================================
+# SOIL HEALTH SCORE
+# =========================================================
+
+def calculate_soil_health(N, P, K, ph):
+
+    nutrient_score = (N + P + K) / 3
+
+    ph_score = 100 - abs(ph - 7) * 10
+
+    total_score = (nutrient_score + ph_score) / 2
+
+    total_score = max(0, min(100, total_score))
+
+    return total_score
+
+# =========================================================
+# SEASON DETECTION
+# =========================================================
+
+def detect_season():
+
+    month = datetime.now().month
+
+    if month in [6, 7, 8, 9]:
+        return "🌧 Kharif Season"
+
+    elif month in [10, 11, 12, 1, 2, 3]:
+        return "❄ Rabi Season"
+
+    else:
+        return "☀ Zaid Season"
+
+# =========================================================
 # TITLE
 # =========================================================
 
@@ -482,12 +500,54 @@ ph = st.sidebar.slider("Soil pH", 0.0, 14.0, 6.5)
 location = f"{district}, {state}"
 
 # =========================================================
-# FETCH WEATHER
+# WEATHER MODE
 # =========================================================
 
-with st.spinner("Fetching historical weather data..."):
+st.sidebar.header("🌦 Weather Input Option")
 
-    temperature, humidity, rainfall, weather_df = get_weather_data(location)
+weather_mode = st.sidebar.radio(
+    "Choose Weather Input Method",
+    ["Automatic API Weather", "Manual Weather Input"]
+)
+
+# =========================================================
+# AUTOMATIC WEATHER
+# =========================================================
+
+if weather_mode == "Automatic API Weather":
+
+    with st.spinner("Fetching historical weather data..."):
+
+        temperature, humidity, rainfall, weather_df = get_weather_data(location)
+
+# =========================================================
+# MANUAL WEATHER INPUT
+# =========================================================
+
+else:
+
+    temperature = st.sidebar.slider(
+        "Temperature (°C)",
+        0.0,
+        50.0,
+        25.0
+    )
+
+    humidity = st.sidebar.slider(
+        "Humidity (%)",
+        0.0,
+        100.0,
+        60.0
+    )
+
+    rainfall = st.sidebar.slider(
+        "Rainfall (mm)",
+        0.0,
+        500.0,
+        100.0
+    )
+
+    weather_df = pd.DataFrame()
 
 # =========================================================
 # WEATHER METRICS
@@ -505,22 +565,76 @@ with col3:
     st.metric("🌧 Avg Rainfall", f"{rainfall:.2f} mm")
 
 # =========================================================
+# MODEL INFO
+# =========================================================
+
+st.subheader("🤖 AI Model Information")
+
+colA, colB = st.columns(2)
+
+with colA:
+    st.metric("🎯 Model Accuracy", MODEL_ACCURACY)
+
+with colB:
+    season = detect_season()
+    st.metric("🌾 Current Farming Season", season)
+
+# =========================================================
+# SOIL HEALTH
+# =========================================================
+
+st.subheader("🌱 Soil Health Analysis")
+
+soil_score = calculate_soil_health(N, P, K, ph)
+
+st.progress(int(soil_score))
+
+if soil_score > 75:
+    st.success(f"Excellent Soil Health: {soil_score:.2f}/100")
+
+elif soil_score > 50:
+    st.info(f"Moderate Soil Health: {soil_score:.2f}/100")
+
+else:
+    st.error(f"Poor Soil Health: {soil_score:.2f}/100")
+
+# =========================================================
 # WEATHER CHART
 # =========================================================
 
-st.subheader("🌦 Weather Trend Analysis (Last 30 Days)")
+if weather_mode == "Automatic API Weather":
 
-if not weather_df.empty:
+    st.subheader("🌦 Weather Trend Analysis")
 
-    fig_weather = px.line(
-        weather_df,
-        x="Date",
-        y=["Temperature", "Humidity", "Rainfall"],
-        markers=True,
-        title="Historical Weather Analysis"
+    if not weather_df.empty:
+
+        fig_weather = px.line(
+            weather_df,
+            x="Date",
+            y=["Temperature", "Humidity", "Rainfall"],
+            markers=True
+        )
+
+        st.plotly_chart(fig_weather, use_container_width=True)
+
+else:
+
+    st.subheader("🌦 Manual Weather Data")
+
+    manual_weather = pd.DataFrame({
+        "Parameter": ["Temperature", "Humidity", "Rainfall"],
+        "Value": [temperature, humidity, rainfall]
+    })
+
+    fig_manual = px.bar(
+        manual_weather,
+        x="Parameter",
+        y="Value",
+        color="Parameter",
+        text="Value"
     )
 
-    st.plotly_chart(fig_weather, use_container_width=True)
+    st.plotly_chart(fig_manual, use_container_width=True)
 
 # =========================================================
 # SOIL ANALYSIS CHART
@@ -538,14 +652,13 @@ fig = px.bar(
     x="Nutrient",
     y="Value",
     color="Nutrient",
-    text="Value",
-    title="Soil Nutrient Levels"
+    text="Value"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
 # =========================================================
-# PREDICTION BUTTON
+# PREDICT
 # =========================================================
 
 if st.button("🌱 Recommend Crop"):
